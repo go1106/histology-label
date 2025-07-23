@@ -2,3 +2,4 @@ Django>=4.2
 torch>=2.0
 transformers>=4.39
 Pillow
+gunicorn
