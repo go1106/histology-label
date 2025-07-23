@@ -1,0 +1,27 @@
+{% if user.is_authenticated %}
+  <p>Hi {{ user.username }}! 
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit">Logout</button>
+  </form></p>
+
+{% else %}
+  <p><a href="{% url 'login' %}">Login</a></p>
+{% endif %}
+
+<h2>Histology Slide Gallery</h2>
+
+{% for slide in slides %}
+  <div style="margin-bottom: 20px;">
+    <h4>{{ slide.title }}</h4>
+    
+    <a href="{% url 'slide_detail' slide.id %}">
+      <img src="{{ slide.image_file.url }}" alt="{{ slide.title }}" style="max-width: 300px;">
+    </a>
+    <p>Uploaded by: {{ slide.uploaded_by.username }} | {{ slide.upload_date }}</p>
+  </div>
+{% empty %}
+  <p>No slides uploaded yet.</p>
+{% endfor %}
+<a href="{% url 'upload' %}">Upload New Slide</a>
+
