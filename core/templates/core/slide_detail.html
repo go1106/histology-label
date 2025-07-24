@@ -1,0 +1,199 @@
+<h2>{{ slide.title }}</h2>
+
+<div style="position: relative; display: inline-block;">
+    <img id="slide-image" src="{{ slide.image_file.url }}" alt="{{ slide.title }}" style="max-width: 800px;">
+    <canvas id="annotation-canvas" style="position: absolute; top: 0; left: 0;"></canvas>
+</div>
+
+<br>
+<select id="label-select">
+    <option value="Tumor">Tumor</option>
+    <option value="Normal">Normal</option>
+</select>
+<button id="save-btn">Save Annotation</button>
+
+<button id="analyze-btn">Analyze with AI</button>
+<p id="ai-result"></p>
+
+
+<form action="{% url 'export_annotations_csv' slide.id %}" method="get">
+    <button type="submit">📄 Export CSV</button>
+</form>
+
+
+<p>Uploaded by: {{ slide.uploaded_by.username }}</p>
+<p>Upload Date: {{ slide.upload_date }}</p>
+
+<a href="{% url 'gallery' %}">← Back to Gallery</a>
+
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+const csrftoken = getCookie('csrftoken');
+
+
+const image = document.getElementById('slide-image');
+const canvas = document.getElementById('annotation-canvas');
+const ctx = canvas.getContext('2d');
+
+image.onload = () => {
+    canvas.width = image.clientWidth;
+    canvas.height = image.clientHeight;
+
+    // Draw saved annotations
+    const savedAnnotations = [
+        {% for ann in annotations %}
+        {
+            id: {{ ann.id }},
+            x: {{ ann.x }},
+            y: {{ ann.y }},
+            width: {{ ann.width }},
+            height: {{ ann.height }},
+            label: "{{ ann.label }}"
+        },
+        {% endfor %}
+    ];
+
+    savedAnnotations.forEach((ann) => {
+        ctx.strokeStyle = 'blue';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
+        ctx.font = "14px Arial";
+        ctx.fillStyle = 'blue';
+        ctx.fillText(ann.label, ann.x + 4, ann.y + 16);
+
+
+        // Create delete button dynamically
+        const btn = document.createElement('button');
+        btn.innerText = 'Delete';
+        btn.style.position = 'absolute';
+        btn.style.left = `${canvas.offsetLeft + ann.x + ann.width + 5}px`;
+        btn.style.top = `${canvas.offsetTop + ann.y}px`;
+        btn.style.zIndex = 10;
+        btn.style.backgroundColor = '#f44336';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+        btn.style.padding = '4px 8px';
+        btn.style.cursor = 'pointer';
+
+        btn.onclick = () => {
+            if (confirm('Delete this annotation?')) {
+                fetch(`/annotation/${ann.id}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                    }
+                }).then(res => {
+                    if (res.ok) {
+                        alert('Deleted');
+                        location.reload();
+                    } else {
+                        alert('Failed to delete');
+                    }
+                });
+            }
+        };
+
+        document.body.appendChild(btn);
+    });
+};
+
+let isDrawing = false;
+let startX = 0;
+let startY = 0;
+let currentBox = null;
+
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, mouseX - startX, mouseY - startY);
+});
+
+canvas.addEventListener('mouseup', (e) => {
+    isDrawing = false;
+    const rect = canvas.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    const endY = e.clientY - rect.top;
+
+    currentBox = {
+        x: Math.min(startX, endX),
+        y: Math.min(startY, endY),
+        width: Math.abs(endX - startX),
+        height: Math.abs(endY - startY)
+    };
+});
+
+document.getElementById('save-btn').addEventListener('click', () => {
+    if (!currentBox) {
+        alert("Draw a box first.");
+        return;
+    }
+
+    const label = document.getElementById('label-select').value;
+
+    fetch("{% url 'save_annotation' slide.id %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({ ...currentBox, label })
+    }).then(res => {
+        if (res.ok) {
+            alert("Annotation saved!");
+            location.reload();  // reload to draw saved annotation
+        } else {
+            alert("Error saving annotation.");
+        }
+    });
+});
+
+document.getElementById('analyze-btn').addEventListener('click', () => {
+        //fetch("{% url 'analyze_slide' slide.id %}")
+        fetch("{% url 'analyze_slide' slide.id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('ai-result').innerText = "AI Prediction: " + data.label;
+            })
+            .catch(err => {
+                alert("AI analysis failed");
+                console.error(err);
+            });
+    });
+    </script>    
+    
+
+
