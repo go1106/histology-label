@@ -13,7 +13,9 @@
 <button id="save-btn">Save Annotation</button>
 
 <button id="analyze-btn">Analyze with AI</button>
-<p id="ai-result"></p>
+<p id="prediction_result"></p>
+
+
 
 
 <form action="{% url 'export_annotations_csv' slide.id %}" method="get">
@@ -174,6 +176,8 @@ document.getElementById('save-btn').addEventListener('click', () => {
     });
 });
 
+
+
 document.getElementById('analyze-btn').addEventListener('click', () => {
         //fetch("{% url 'analyze_slide' slide.id %}")
         fetch("{% url 'analyze_slide' slide.id %}", {
@@ -186,7 +190,7 @@ document.getElementById('analyze-btn').addEventListener('click', () => {
         })
             .then(res => res.json())
             .then(data => {
-                document.getElementById('ai-result').innerText = "AI Prediction: " + data.label;
+                document.getElementById('prediction_result').innerText = "AI Prediction: " + data.label;
             })
             .catch(err => {
                 alert("AI analysis failed");

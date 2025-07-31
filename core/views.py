@@ -136,7 +136,7 @@ def export_annotations_csv(request, slide_id):
 
     return response
 
-
+"""
 from transformers import AutoFeatureExtractor, AutoModelForImageClassification
 from PIL import Image
 import torch
@@ -186,3 +186,32 @@ def analyze_slide(request, slide_id):
     except Exception as e:
         print("❌ Exception during AI analysis:", e)
         return JsonResponse({"error": "AI analysis failed", "detail": str(e)}, status=500)
+"""
+import tensorflow as tf
+from PIL import Image
+import numpy as numpy
+model = tf.keras.models.load_model('core/models/breast_model.h5')
+class_names = ['Normal', 'Cancer']
+@require_POST
+@login_required
+def analyze_slide(request, slide_id):
+    slide = get_object_or_404(SlideImage, id=slide_id)
+    image = Image.open(slide.image_file.path).convert('RGB')
+    image = image.resize((224, 224))
+    image_array = numpy.array(image) / 255.0
+    image_array = numpy.expand_dims(image_array, axis=0)
+    predictions = model.predict(image_array)[0][0]  # Assuming binary classification, adjust if needed
+    #predictions = model.predict(image_array)[0][0]
+    print("Predictions:", predictions)
+    if predictions > 0.336:
+        label = 'Cancer'
+    else:
+        label = 'Normal'
+    return JsonResponse({'label': label, "confidence": float(predictions)})
+
+    #predictions = model.predict(image_array)
+    
+    #return JsonResponse({'label': class_names[numpy.argmax(predictions[0])]})
+
+    
+
